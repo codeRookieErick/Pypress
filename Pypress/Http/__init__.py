@@ -98,6 +98,7 @@ class Server:
         return ''.join([i + '\n' for i in raw.splitlines()])
 
     def listen(self, port):
+        print(f'listening on {port}...')
         self.serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.serverSocket.bind(('', port))
         self.serverSocket.listen(5)

@@ -1,6 +1,13 @@
+import os
 from Pypress.Http import *
 from Pypress import Application
 from typing import *
+
+port = 6088
+try:
+    port = int(os.environ['PORT'])
+except:
+    pass
 
 
 class MyApp(Application):
@@ -23,4 +30,4 @@ def middleware(app: MyApp, req: HttpRequest, res: HttpResponse, next):
 
 app = MyApp()
 app.use(middleware)
-app.listen(6068)
+app.listen(port)
