@@ -5,4 +5,4 @@ RUN apt-get update
 RUN apt-get install -y python3
 COPY Pypress .
 COPY server.py .
-CMD ["/bin/bash"]
+CMD ["python3", "server.py"]
