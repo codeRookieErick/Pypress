@@ -31,6 +31,11 @@ class HttpResponse:
         self.body += data
         return self
 
+    def readFile(self, fileName, contentType=None):
+        with open(fileName, 'r') as f:
+            self.body += f.read()
+        return self.contentType(contentType or "text/plain")
+
     def __str__(self):
         result = f"HTTP/1.1 {self.resposeStatus} {self.resposeText}\n"
         self.headers["Content-Length"] = len(self.body)
@@ -58,7 +63,7 @@ class HttpRequest:
         self.url = firstLine[1] if len(firstLine) >= 1 else ''
         self.querystring = self.url.split('?', 1)[1] if '?' in self.url else ''
         self.path = self.url.split('?')[:1][0]
-        self.queryParameters = dict([
+        self.params = dict([
             tuple([j.strip() for j in i.split('=', 1)])
             for i in self.querystring.split('&') if len(i.split('=')) == 2
         ])
@@ -66,7 +71,6 @@ class HttpRequest:
             tuple([j.strip() for j in i.split(':', 1)]) for i in self.headers
             if len(i.split(':')) == 2
         ])
-
 
 class Server:
     def __init__(self, connectionTimeout=None):
@@ -110,7 +114,10 @@ class Server:
                 self.onReceive(clientSocket, raw_data)
             except socket.timeout:
                 continue
-            except Exception as e:
+            except KeyboardInterrupt as e:
                 break
+            except Exception as e:
+                print(e)
+                continue
             finally:
                 clientSocket.close()

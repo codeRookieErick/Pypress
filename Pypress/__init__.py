@@ -1,4 +1,6 @@
 from .Http import *
+import re
+import os
 
 
 class Application(Server):
@@ -20,6 +22,7 @@ class Application(Server):
         return inner
 
     def get(route):
+        print(__doc__)
         return Application.register_function('GET', route)
 
     def post(route):
@@ -39,8 +42,17 @@ class Application(Server):
         return result
 
     def onReceive(self, clientPort, data):
-        req = HttpRequest(data)
+        req = None
         res = HttpResponse()
+        try:
+            req = HttpRequest(data)
+        except Exception as e:
+            print(e)
+            print(data)
+            res.status(403, "BadRequest")
+            clientPort.send(str(res).encode())
+            return
+
         stack = self.stack.copy()
 
         def next():
@@ -48,14 +60,67 @@ class Application(Server):
                 stack.pop()(self, req, res, next)
 
         if req.method in self.routes:
-            if req.path in self.routes[req.method]:
-                handler = self.routes[req.method][req.path]
+            regularPaths = [i for i in self.routes[req.method]]
+            for route in regularPaths:
+                pattern = re.sub(":([\w]+)", r"(?P<\1>[\\w]+)", route)
+                pattern = "^" + pattern + "$"
+                match = re.match(pattern, req.path)
+                if match:
+                    handler = self.routes[req.method][route]
+                    queryParams = match.groupdict()
+                    for i in queryParams:
+                        req.params[i] = queryParams[i]
 
-                def middleware(app, req, res, next):
-                    handler(app, req, res)
-                    next()
+                    def middleware(app, req, res, next):
+                        res.status(200, "OK")
+                        handler(app, req, res)
+                        next()
+                    stack.append(middleware)
+                    break
 
-                stack.append(middleware)
-
+        stack.reverse()
         next()
         clientPort.send(str(res).encode())
+
+
+def body_parser(app: Application, req: HttpRequest, res: HttpResponse, next):
+    print(req.body)
+    next()
+
+
+contentTypes = {
+    "text/": ["html", "css"],
+    "text/javascript": ["js"],
+    "text/html": ["htm"],
+    "application/": ["json", "xml", "pdf"],
+    "image/": ["gif", "png", "jpeg", "bmp", "webp"],
+    "image/jpeg": ["jpg"],
+    "audio/": ["mpeg", "webm", "ogg", "midi", "wav"],
+    "text/plain": ["txt", "*"]
+}
+
+
+def static_files(folder: str):
+    def result(app: Application, req: HttpRequest, res: HttpResponse, next):
+        fileToSearch = os.sep.join([folder, req.path])
+        if os.path.isfile(fileToSearch):
+            extension = fileToSearch.split(".")[-1:][0]
+            contentType = 'text/plain'
+            for i in contentTypes:
+                if extension in contentTypes[i]:
+                    contentType = i
+                    if contentType.endswith("/"):
+                        contentType += extension
+                    break
+            res.readFile(fileToSearch, contentType)
+        else:
+            next()
+    return result
+
+
+def header_inspector(headerName: str):
+    def result(app: Application, req: HttpRequest, res: HttpResponse, next):
+        if headerName in req.headers:
+            print(f'{headerName}: {req.headers[headerName]}')
+        next()
+    return result
