@@ -9,29 +9,25 @@ except:
     pass
 
 
-class MyApp(Application):
-    def __init__(self):
-        Application.__init__(self)
-
-    @Application.get('/list')
-    def getList(self, req: HttpRequest, res: HttpResponse):
-        res.json([i for i in range(0, 10)])
-
-    @Application.get('/:id?')
-    def main(self, req: HttpRequest, res: HttpResponse):
-        res.json({"Method": "Get"})
-
-    @Application.post("/:id?")
-    def index(self, req: HttpRequest, res: HttpResponse):
-        res.readFile("server.py")
-
-
-def middleware(app: MyApp, req: HttpRequest, res: HttpResponse, next):
+def middleware(app: Application, req: HttpRequest, res: HttpResponse, next):
     res.headers['Special'] = 'This request is special'
     next()
 
 
-app = MyApp()
+app = Application()
+
 app.use(middleware)
 app.use(static_files('./static'))
+
+
+@app.get('/list')
+def get_list(self, req: HttpRequest, res: HttpResponse):
+    res.json([i for i in range(0, 10)])
+
+
+@app.get('/:id?')
+def main(self, req: HttpRequest, res: HttpResponse):
+    res.json({"Method": "Get"})
+
+
 app.listen(port)

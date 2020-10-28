@@ -3,6 +3,14 @@ import re
 import os
 
 
+class Router:
+    baseRoutes = {}
+
+    def __init__(self):
+        self.routes = Router.baseRoutes
+        self.stack = []
+
+
 class Application(Server):
     baseRoutes = {}
 
@@ -11,7 +19,7 @@ class Application(Server):
         self.routes = Application.baseRoutes
         self.stack = []
 
-    def register_function(httpMethod, route):
+    def register_function(self, httpMethod, route):
         def inner(function):
             if httpMethod.upper() not in Application.baseRoutes:
                 Application.baseRoutes[httpMethod.upper()] = {route: function}
@@ -21,25 +29,19 @@ class Application(Server):
 
         return inner
 
-    def get(route):
-        print(__doc__)
-        return Application.register_function('GET', route)
+    def get(self, route):
+        return self.register_function('GET', route)
 
-    def post(route):
-        return Application.register_function('POST', route)
+    def post(self, route):
+        return self.register_function('POST', route)
 
     def use(self, handler):
         self.stack.append(handler)
 
-    def __getattr__(self, item):
-        item = item.upper()
-        if not item in self.routes:
-            self.routes[item] = {}
-
-        def result(route, handler):
-            self.routes[item][route] = handler
-
-        return result
+    def __getattr__(self, method):
+        def inner(route):
+            return self.register_function(method.upper(), route)
+        return inner
 
     def onReceive(self, clientPort, data):
         req = None
@@ -62,7 +64,7 @@ class Application(Server):
         if req.method in self.routes:
             regularPaths = [i for i in self.routes[req.method]]
             for route in regularPaths:
-                pattern = re.sub(":([\w]+)", r"(?P<\1>[\\w]+)", route)
+                pattern = re.sub(r":([\w]+)", r"(?P<\1>[\\w]+)", route)
                 pattern = "^" + pattern + "$"
                 match = re.match(pattern, req.path)
                 if match:
@@ -124,3 +126,8 @@ def header_inspector(headerName: str):
             print(f'{headerName}: {req.headers[headerName]}')
         next()
     return result
+
+
+def body_inspector(app: Application, req: HttpRequest, res: HttpResponse, next):
+    print(req.body)
+    next()
